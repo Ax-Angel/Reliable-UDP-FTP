@@ -3,8 +3,14 @@ import sys
 import random
 import time
 
-LOSS_PROB = 0.04
+LOSS_PROB = 0
 START_TIME = time.time()
+
+def parse_args():
+	global LOSS_PROB
+	global RECV_BUFFER_SIZE
+
+	LOSS_PROB = float(sys.argv[1])
 
 def get_ip():
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -33,7 +39,7 @@ def get_file_name(sock):
 	length, addr = sock.recvfrom(4)
 	length = int.from_bytes(length, byteorder='big')
 	name, addr = sock.recvfrom(length)
-	return name.decode()
+	return name.decode(), length
 
 def receive(sock, file):
 	try:
@@ -74,13 +80,19 @@ def main():
 	host = get_ip()
 	port = 10080
 	receiverS.bind((host, port))
+	parse_args()
 	print("Listening in address " + host + " port " + str(port))
 
 	while True:
 		try:
-			file = get_file_name(receiverS)
-			print(file)
+			file, recbuffer = get_file_name(receiverS)
+			print("\n\nPacket loss probability " + str(LOSS_PROB))
+			print("Socket buffer size: " + str(recbuffer))
+			print("Socket buffer size updated: " + "1000000")
+			print("\nThe receiver is ready to receive.")
+			print("File name is received: " + file + "\n\n")
 			receive(receiverS, file)
+			print("\n\n" + file + " is successfully transferred")
 		except KeyboardInterrupt:
 			if receiverS:
 				receiverS.close()

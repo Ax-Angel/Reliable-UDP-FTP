@@ -121,6 +121,8 @@ def send_file(sock):
 					print(str(round(time.time() - START_TIME, 3)) + "   pkt: " + str(next_to_send) + "  Sender -> Receiver")
 					sock.sendto(packets[next_to_send], (RECEIVER_ADDR, RECEIVER_PORT))
 					next_to_send += 1
+					if next_to_send > (len(packets) - 1):
+						break
 
 				# Start the timer
 				if not send_timer._start_time != send_timer.TIMER_STOP:
@@ -151,6 +153,8 @@ def send_file(sock):
 
 		# Send empty packet as sentinel
 		sock.sendto(make_empty(), (RECEIVER_ADDR, RECEIVER_PORT))
+		print("\n\n" + FILE + " is successfully transferred.")
+		print("Throughput: " + str(round((os.path.getsize(FILE)) / round(time.time() - START_TIME, 3), 3)) + " pkts / sec")
 
 	except IOError:
 		print("Error opening " + FILE)
@@ -191,6 +195,10 @@ def main():
 	parse_args()
 	senderS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	senderS.bind((SENDER_ADDR, SENDER_PORT))
+	print("Receiver IP address: " + RECEIVER_ADDR)
+	print("Window size: " + str(WINDOW_SIZE))
+	print("Timeout (sec): " + str(TIMEOUT_INTERVAL))
+	print("File name: " + FILE + "\n\n")
 	send_file_name(senderS)
 	send_file(senderS)
 	senderS.close()
