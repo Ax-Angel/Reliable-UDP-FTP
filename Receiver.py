@@ -28,9 +28,6 @@ def pack(seq_num, data = b''):
 	seq_bytes = seq_num.to_bytes(4, byteorder = 'little', signed = True)
 	return seq_bytes + data
 
-def make_empty():
-	return b''
-
 def unpack(packet):
 	seq_num = int.from_bytes(packet[0:4], byteorder = 'little', signed = True)
 	return seq_num, packet[4:]
@@ -54,7 +51,6 @@ def receive(sock, file):
 					seq_num, data = unpack(pkt)
 					print(str(round(time.time() - START_TIME, 3)) + "   pkt: " + str(seq_num) + "  Receiver <- Sender")
 
-					# Send back an ACK
 					if seq_num == expected_seg:
 						print(str(round(time.time() - START_TIME, 3)) + "   ack: " + str(expected_seg) + "  Receiver -> Sender")
 						pkt = pack(expected_seg)

@@ -21,40 +21,40 @@ send_timer = 0
 duplicated = 0
 
 class Timer(object):
-	TIMER_STOP = -1
+	IS_TIMER_STOP = -1
 
 	def __init__(self, duration):
-		self._start_time = self.TIMER_STOP
+		self._start_time = self.IS_TIMER_STOP
 		self._duration = duration
 
 	def start(self):
-		if self._start_time == self.TIMER_STOP:
+		if self._start_time == self.IS_TIMER_STOP:
 			self._start_time = time.time()
 
 	def stop(self):
-		if self._start_time != self.TIMER_STOP:
-			self._start_time = self.TIMER_STOP
+		if self._start_time != self.IS_TIMER_STOP:
+			self._start_time = self.IS_TIMER_STOP
 
 	def timeout(self):
-		if not self._start_time != self.TIMER_STOP:
+		if not self._start_time != self.IS_TIMER_STOP:
 			return False
 		else:
 			return time.time() - self._start_time >= self._duration
 
 def get_ip():
-	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	try:
 		# Doesn't matter if its unreachable
-		s.connect(('10.255.255.255', 1))
-		IP = s.getsockname()[0]
+		sock.connect(('10.255.255.255', 1))
+		IP = sock.getsockname()[0]
 	except:
 		IP = '127.0.1.1'
 	finally:
-		s.close()
+		sock.close()
 	return IP
 
-def utf8len(s):
-	return len(s.encode('utf-8'))
+def utf8len(sock):
+	return len(sock.encode('utf-8'))
 
 def parse_args():
 	global RECEIVER_ADDR
@@ -75,7 +75,7 @@ def pack(seq_num, data = b''):
 	seq_bytes = seq_num.to_bytes(4, byteorder = 'little', signed = True)
 	return seq_bytes + data
 
-def make_empty():
+def empty_pkt():
 	return b''
 
 def unpack(packet):
@@ -116,7 +116,6 @@ def send_file(sock):
 
 			while base < num_packets:
 				lock.acquire()
-				# Send all the packets in the window
 				while next_to_send < base + window_size:
 					print(str(round(time.time() - START_TIME, 3)) + "   pkt: " + str(next_to_send) + "  Sender -> Receiver")
 					sock.sendto(packets[next_to_send], (RECEIVER_ADDR, RECEIVER_PORT))
@@ -124,25 +123,21 @@ def send_file(sock):
 					if next_to_send > (len(packets) - 1):
 						break
 
-				# Start the timer
-				if not send_timer._start_time != send_timer.TIMER_STOP:
+				if not send_timer._start_time != send_timer.IS_TIMER_STOP:
 					send_timer.start()
 
-				# Wait until a timer goes off or we get an ACK
-				while send_timer._start_time != send_timer.TIMER_STOP and not send_timer.timeout():
+				while send_timer._start_time != send_timer.IS_TIMER_STOP and not send_timer.timeout():
 					lock.release()
 					time.sleep(SLEEP_INTERVAL)
 					lock.acquire()
 
 				if send_timer.timeout():
-					# Looks like we timed out
 					print(str(round(time.time() - START_TIME, 3)) + "   pkt: " + str(next_to_send) + "  | Timeout since " + str(round(time.time() - START_TIME - TIMEOUT_INTERVAL, 3)))
 					send_timer.stop();
 					next_to_send = base
 
 				if duplicated >= 3:
 					print(str(round(time.time() - START_TIME, 3)) + "   pkt: " + str(next_to_send-1) + "  | 3 duplicated ACKs")
-					#time.sleep(200)
 					send_timer.stop();
 					next_to_send = base - 1
 					duplicated = 0
@@ -151,8 +146,7 @@ def send_file(sock):
 					window_size = set_window_size(num_packets)
 				lock.release()
 
-		# Send empty packet as sentinel
-		sock.sendto(make_empty(), (RECEIVER_ADDR, RECEIVER_PORT))
+		sock.sendto(empty_pkt(), (RECEIVER_ADDR, RECEIVER_PORT))
 		print("\n\n" + FILE + " is successfully transferred.")
 		print("Throughput: " + str(round((os.path.getsize(FILE)) / round(time.time() - START_TIME, 3), 3)) + " pkts / sec")
 
@@ -172,7 +166,6 @@ def receive(sock):
 
 		lock.acquire()
 		print(str(round(time.time() - START_TIME, 3)) + "   ack: " + str(ack) + "  Sender <- Receiver")
-		#if ack is duplicated
 		if past_ack == ack:
 			duplicated += 1
 
@@ -182,12 +175,12 @@ def receive(sock):
 			send_timer.stop()
 		lock.release()
 
-def send_file_name(s):
+def send_file_name(sock):
 	global FILE
 	if os.path.isfile(FILE):
 		length = utf8len(FILE)
-		s.sendto(length.to_bytes(4, byteorder = 'big'), (RECEIVER_ADDR, RECEIVER_PORT))
-		s.sendto(bytes(FILE, 'UTF-8'), (RECEIVER_ADDR, RECEIVER_PORT))
+		sock.sendto(length.to_bytes(4, byteorder = 'big'), (RECEIVER_ADDR, RECEIVER_PORT))
+		sock.sendto(bytes(FILE, 'UTF-8'), (RECEIVER_ADDR, RECEIVER_PORT))
 	else:
 		sys.exit(FILE + " wasn't found in the directory!")
 
